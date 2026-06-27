@@ -11,15 +11,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900;1,14..32,400&display=swap" rel="stylesheet">
-<!--
-  Para conectar Firebase real:
-  1. Descomente os scripts abaixo
-  2. Preencha FIREBASE_CONFIG com suas credenciais
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
--->
 <style>
 
 /* ════════════════════════════════════════════════════════
@@ -2073,6 +2068,7 @@ try {
 }
 
 /* ── AUTH LISTENER ── */
+if (!auth) throw new Error('Firebase não inicializado')
 auth.onAuthStateChanged(async user => {
   G.user = user
 
