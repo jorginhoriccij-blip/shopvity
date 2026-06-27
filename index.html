@@ -1872,40 +1872,6 @@ async function wizCriarLoja(email, senha) {
   const nicho = _wiz.nicho
   const nData = NICHOS_DATA[nicho] || NICHOS_DATA.servicos
 
-  /* ── MODO DEMO ─────────────────────────────────────── */
-  if (isDemo) {
-    // Anima os passos de loading
-    for (let i = 0; i < 4; i++) { await animLoad(i); await new Promise(r => setTimeout(r, 550)) }
-
-    // Estado global mock
-    G.user    = { uid: 'demo-' + Date.now(), email, displayName: nome }
-    G.empresa = {
-      uid: G.user.uid, nomeEmpresa: nome, slug,
-      icone: _wiz.emoji || nData.icon, nicho,
-      corPrimaria: nData.accent, telefone: whats,
-      instagram: val('wiz-insta'), cidade: val('wiz-cidade'),
-      descricao: val('wiz-desc'), email,
-      status: 'ativo', plano: 'trial',
-      logo:   _wizFotos.logo_b64   || '',
-      banner: _wizFotos.banner_b64 || '',
-    }
-    G.anuncios = nData.produtos.map((p, i) => ({
-      id: 'demo-p-' + i, ...p,
-      precoTexto: isNaN(parseFloat(p.preco)) ? p.preco : '',
-      linkPagamento: '', whatsapp: whats, foto: '', fotos: [],
-      empresaId: G.user.uid
-    }))
-
-    $('wiz-e3').style.display = 'none'; $('wiz-e4').style.display = 'block'
-    $('wiz-ready-emoji').textContent = _wiz.emoji || nData.icon
-    $('wiz-ready-nome').textContent  = nome
-    $('wiz-ready-link').textContent  = `${APP.dominio}/?v=${slug}`
-    atualizarPainelUI()
-    toast('✅ Modo demo — configure o Firebase para produção', 'ok')
-    return
-  }
-  /* ── FIM MODO DEMO ── */
-
   try {
     animLoad(0)
 
@@ -2017,10 +1983,7 @@ function excluirAnuncioAtual() {
 }
 
 
-/* ── Helpers para modo demo ─────────────────────────── */
-/* serverTS(): retorna timestamp seguro em demo e produção */
 function serverTS() {
-  if (isDemo) return new Date()
   return typeof firebase !== 'undefined'
     ? firebase.firestore.FieldValue.serverTimestamp()
     : new Date()
@@ -2093,66 +2056,20 @@ let G = {
    • Demo (SUA_API_KEY): mock objects, navegação 100% local
    • Produção (chaves reais): Firebase completo
 ════════════════════════════════════════════════════════ */
-const isDemo = FIREBASE_CONFIG.apiKey === 'SUA_API_KEY'
+const isDemo = false
 
 let auth, db, storage, gProvider
 
-if (isDemo) {
-  /* ── MOCKS para modo demo ── */
-  const _noop  = () => Promise.resolve()
-  const _noopV = (v) => () => Promise.resolve(v)
-
-  auth = {
-    onAuthStateChanged : (cb) => { setTimeout(() => cb(null), 0); return () => {} },
-    signInWithEmailAndPassword    : () => Promise.reject({code:'demo'}),
-    createUserWithEmailAndPassword: () => Promise.reject({code:'demo'}),
-    signInWithPopup : () => Promise.reject({code:'demo'}),
-    signOut : _noop,
-    currentUser : null
-  }
-
-  const _docMock = () => ({
-    get    : () => Promise.resolve({ exists: false, data: () => ({}) }),
-    set    : _noop,
-    update : _noop,
-    onSnapshot : (cb) => { cb({ exists: false, data: () => ({}) }); return () => {} }
-  })
-  const _colMock = () => ({
-    doc    : _docMock,
-    add    : () => Promise.resolve({ id: 'demo-' + Date.now() }),
-    get    : () => Promise.resolve({ docs: [], empty: true }),
-    where  : () => _colMock(),
-    limit  : () => _colMock(),
-    orderBy: () => _colMock(),
-    batch  : () => ({ set: _noop, commit: _noop })
-  })
-  db = {
-    collection : _colMock,
-    batch      : () => ({ set: () => {}, commit: _noop })
-  }
-  storage = {
-    ref: () => ({
-      put           : () => Promise.resolve(),
-      getDownloadURL: () => Promise.resolve('')
-    })
-  }
-  gProvider = {}
-
-} else {
-  /* ── Firebase real — só roda se SDK carregado ── */
-  try {
-    if (typeof firebase === 'undefined') throw new Error('Firebase SDK não carregado. Descomente os scripts no <head>.')
-    firebase.initializeApp(FIREBASE_CONFIG)
-    auth     = firebase.auth()
-    db       = firebase.firestore()
-    storage  = firebase.storage()
-    gProvider = new firebase.auth.GoogleAuthProvider()
-  } catch(e) {
-    console.error('Firebase init error:', e.message)
-    // Fallback: usar demo mode se Firebase não carregou
-    alert('Firebase não configurado. Rodando em modo demo.\n\nDescomente os scripts do Firebase no <head> e configure FIREBASE_CONFIG.')
-    location.reload()
-  }
+try {
+  if (typeof firebase === 'undefined') throw new Error('Firebase SDK não carregou. Verifique sua conexão.')
+  firebase.initializeApp(FIREBASE_CONFIG)
+  auth      = firebase.auth()
+  db        = firebase.firestore()
+  storage   = firebase.storage()
+  gProvider = new firebase.auth.GoogleAuthProvider()
+} catch(e) {
+  console.error('Erro Firebase:', e.message)
+  document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:system-ui;text-align:center;padding:24px"><div><div style="font-size:3rem;margin-bottom:16px">⚠️</div><h2 style="margin:0 0 8px">Erro ao conectar</h2><p style="color:#666;margin:0 0 20px">${e.message}</p><button onclick="location.reload()" style="background:#7c3aed;color:#fff;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;font-size:1rem">Tentar novamente</button></div></div>`
 }
 
 /* ── AUTH LISTENER ── */
@@ -2161,11 +2078,6 @@ auth.onAuthStateChanged(async user => {
 
   // Páginas públicas tratadas pelo IIFE
   if (!user) { ir('landing'); return }
-
-  // Modo demo com G.empresa já preenchido (vindo do wizard demo)
-  if (isDemo && G.empresa) {
-    atualizarPainelUI(); ir('painel'); return
-  }
 
   loader('Carregando sua empresa...')
   try {
@@ -2450,16 +2362,6 @@ function previewImg(input, prevId, txtId) {
 }
 
 async function uploadImg(file, path) {
-  /* Modo demo — converte para base64 e usa localmente (sem Firebase Storage) */
-  if (isDemo) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload  = e => resolve(e.target.result)
-      reader.onerror = reject
-      reader.readAsDataURL(file instanceof Blob ? file : file)
-    })
-  }
-  /* Produção — Firebase Storage */
   const ref = storage.ref(path)
   await ref.put(file)
   return await ref.getDownloadURL()
@@ -3031,7 +2933,6 @@ function wizProcFoto(inp, tipo) {
       $('wiz-logo-prev').style.display = 'block'
       $('wiz-logo-ico').style.display  = 'none'
       if ($('wiz-emoji-fallback')) $('wiz-emoji-fallback').style.display = 'none'
-      if (isDemo && G.empresa) { G.empresa.logo = b64; atualizarPainelUI() }
     } else if (tipo === 'user') {
       $('wiz-user-prev').src = b64
       $('wiz-user-prev').style.display = 'block'
@@ -3040,7 +2941,6 @@ function wizProcFoto(inp, tipo) {
       $('wiz-banner-prev').src = b64
       $('wiz-banner-prev').style.display = 'block'
       $('wiz-banner-txt').style.display  = 'none'
-      if (isDemo && G.empresa) G.empresa.banner = b64
     }
   }
   reader.readAsDataURL(file)
@@ -3140,22 +3040,15 @@ function galProcessarFoto(anuncioId, inp) {
     reader.onload = async ev => {
       try {
         loader('Enviando foto...')
-        let url
-        if (isDemo) {
-          url = ev.target.result  // base64 direto em demo
-        } else {
-          url = await uploadImg(file, `shopvity/${G.user.uid}/anuncios/${anuncioId}_f${_galFotoIdx[anuncioId]||0}_${Date.now()}`)
-        }
+        const url = await uploadImg(file, `shopvity/${G.user.uid}/anuncios/${anuncioId}_f${_galFotoIdx[anuncioId]||0}_${Date.now()}`)
         const an = G.anuncios.find(a => a.id === anuncioId); if (!an) return
         const fotos = [...(an.fotos || (an.foto ? [an.foto] : []))]
         const idx   = _galFotoIdx[anuncioId] || 0
         fotos[idx]  = url
         an.foto = fotos[0] || ''; an.fotos = fotos
-        if (!isDemo) {
-          await db.collection('shopvity_empresas').doc(G.user.uid).collection('anuncios').doc(anuncioId).update({
-            foto: fotos[0]||'', fotos, atualizadoEm: serverTS()
-          })
-        }
+        await db.collection('shopvity_empresas').doc(G.user.uid).collection('anuncios').doc(anuncioId).update({
+          foto: fotos[0]||'', fotos, atualizadoEm: serverTS()
+        })
         fecharLoader()
         toast('📷 Foto adicionada!', 'ok')
         const slotsEl = $('gal-slots-'+anuncioId)
@@ -3167,7 +3060,7 @@ function galProcessarFoto(anuncioId, inp) {
     }
     reader.readAsDataURL(file)
   }
-  if (isDemo) { doUpload(file) } else { comprimirFoto(file, doUpload) }
+  comprimirFoto(file, doUpload)
 }
 
 async function galRemoverFoto(anuncioId, slotIdx) {
@@ -3250,18 +3143,13 @@ async function galPublicar(anuncioId) {
       emoji: an.emoji || '📦', whatsapp: an.whatsapp || G.empresa?.telefone || '',
       disponivel: true, publicado: true, atualizadoEm: serverTS()
     }
-    if (!isDemo) {
-      if (an._novo) {
-        // Produto novo — criar no Firestore
-        dados.criadoEm = serverTS(); dados.empresaId = G.user.uid
-        const ref = await db.collection('shopvity_empresas').doc(G.user.uid).collection('anuncios').add(dados)
-        an.id = ref.id   // atualiza id real
-        delete an._novo
-      } else {
-        await db.collection('shopvity_empresas').doc(G.user.uid).collection('anuncios').doc(anuncioId).update(dados)
-      }
-    } else {
+    if (an._novo) {
+      dados.criadoEm = serverTS(); dados.empresaId = G.user.uid
+      const ref = await db.collection('shopvity_empresas').doc(G.user.uid).collection('anuncios').add(dados)
+      an.id = ref.id
       delete an._novo
+    } else {
+      await db.collection('shopvity_empresas').doc(G.user.uid).collection('anuncios').doc(anuncioId).update(dados)
     }
     Object.assign(an, dados)
     fecharLoader()
@@ -3276,9 +3164,7 @@ async function galExcluir(anuncioId) {
   const an = G.anuncios.find(a => a.id === anuncioId)
   if (!confirm(`Excluir "${an?.titulo || 'produto'}"?`)) return
   try {
-    if (!isDemo) {
-      await db.collection('shopvity_empresas').doc(G.user.uid).collection('anuncios').doc(anuncioId).delete()
-    }
+    await db.collection('shopvity_empresas').doc(G.user.uid).collection('anuncios').doc(anuncioId).delete()
     G.anuncios = G.anuncios.filter(a => a.id !== anuncioId)
     renderGaleriaProdutos()
     toast('Produto removido', 'ok')
@@ -3290,7 +3176,6 @@ async function galExcluir(anuncioId) {
 
 function abrirVitrine() {
   if (!G.empresa) { toast('Crie sua loja primeiro', 'err'); return }
-  if (isDemo) { _renderVitrineDemo(); ir('vitrine'); return }
   const slug = G.empresa.slug || gerarSlug(G.empresa.nomeEmpresa)
   window.open(`${window.location.origin}${window.location.pathname}?v=${slug}`, '_blank')
 }
