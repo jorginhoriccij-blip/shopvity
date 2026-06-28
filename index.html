@@ -2055,21 +2055,18 @@ const isDemo = false
 
 let auth, db, storage, gProvider
 
-try {
-  if (typeof firebase === 'undefined') throw new Error('Firebase SDK não carregou. Verifique sua conexão.')
-  firebase.initializeApp(FIREBASE_CONFIG)
-  auth      = firebase.auth()
-  db        = firebase.firestore()
-  storage   = firebase.storage()
-  gProvider = new firebase.auth.GoogleAuthProvider()
-} catch(e) {
-  console.error('Erro Firebase:', e.message)
-  document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:system-ui;text-align:center;padding:24px"><div><div style="font-size:3rem;margin-bottom:16px">⚠️</div><h2 style="margin:0 0 8px">Erro ao conectar</h2><p style="color:#666;margin:0 0 20px">${e.message}</p><button onclick="location.reload()" style="background:#7c3aed;color:#fff;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;font-size:1rem">Tentar novamente</button></div></div>`
+if (typeof firebase === 'undefined') {
+  console.error('Firebase SDK não carregou')
+} else {
+  try { firebase.apps.length === 0 && firebase.initializeApp(FIREBASE_CONFIG) } catch(e) { console.error('initApp:', e.message) }
+  try { auth      = firebase.auth() }    catch(e) { console.error('auth:', e.message) }
+  try { db        = firebase.firestore() } catch(e) { console.error('firestore:', e.message) }
+  try { storage   = firebase.storage() }  catch(e) { console.error('storage:', e.message) }
+  try { gProvider = new firebase.auth.GoogleAuthProvider() } catch(e) { console.error('gProvider:', e.message) }
 }
 
 /* ── AUTH LISTENER ── */
-if (!auth) throw new Error('Firebase não inicializado')
-auth.onAuthStateChanged(async user => {
+if (auth) auth.onAuthStateChanged(async user => {
   G.user = user
 
   // Páginas públicas tratadas pelo IIFE
