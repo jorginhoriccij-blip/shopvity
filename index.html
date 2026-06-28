@@ -1048,7 +1048,7 @@ textarea.form-input { min-height: 100px; resize: vertical; }
           <button class="nicho-btn" data-nicho="estetica"    onclick="wizNicho(this,'estetica')"><span>✨</span><span>Estética</span></button>
         </div>
         
-        <div style="border-top:1px solid var(--b200);padding-top:18px;margin-top:4px">
+        <div id="wiz-conta-box" style="border-top:1px solid var(--b200);padding-top:18px;margin-top:4px">
           <div style="font-size:.85rem;font-weight:600;color:var(--b600);margin-bottom:12px">Criar sua conta</div>
           <div class="form-grid">
             <div class="form-group"><label class="form-label">E-mail *</label><input class="form-input" id="wiz-email" type="email" placeholder="seu@email.com"></div>
@@ -1824,11 +1824,16 @@ function wizProximo(step) {
     _wiz.step = 2
     $('wiz-e1').style.display = 'none'; $('wiz-e2').style.display = 'block'
     $('ws1').className = 'ob-dot'; $('ws2').className = 'ob-dot ativo'
+    // Esconde campos de conta se usuário já está autenticado (ex: Google)
+    if ($('wiz-conta-box')) $('wiz-conta-box').style.display = G.user ? 'none' : ''
   } else if (step === 2) {
     if (!_wiz.nicho) { toast('Escolha o tipo do seu negócio', 'err'); return }
     const email = val('wiz-email'), senha = val('wiz-senha')
-    if (!email || !senha) { toast('Preencha e-mail e senha', 'err'); return }
-    if (senha.length < 6) { toast('Senha mínimo 6 caracteres', 'err'); return }
+    // Se já logado (Google ou outra forma), não exige email/senha
+    if (!G.user) {
+      if (!email || !senha) { toast('Preencha e-mail e senha', 'err'); return }
+      if (senha.length < 6) { toast('Senha mínimo 6 caracteres', 'err'); return }
+    }
     wizCriarLoja(email, senha)
   }
 }
@@ -1870,34 +1875,45 @@ async function wizCriarLoja(email, senha) {
   try {
     animLoad(0)
 
-    // Criar conta Firebase
-    const cred = await auth.createUserWithEmailAndPassword(email, senha)
-    await cred.user.updateProfile({ displayName: nome })
-    G.user = cred.user
+    let uid, userEmail
+
+    if (G.user) {
+      // Usuário já autenticado (ex: login Google) — apenas cria a empresa
+      uid       = G.user.uid
+      userEmail = G.user.email
+      if (nome) await G.user.updateProfile({ displayName: nome }).catch(() => {})
+    } else {
+      // Novo usuário — cria conta com email/senha
+      const cred = await auth.createUserWithEmailAndPassword(email, senha)
+      await cred.user.updateProfile({ displayName: nome })
+      G.user    = cred.user
+      uid       = cred.user.uid
+      userEmail = email
+    }
     animLoad(1)
 
     const exp = new Date(); exp.setDate(exp.getDate() + APP.trial)
     const dadosEmpresa = {
-      uid: cred.user.uid, nomeEmpresa: nome, slug,
+      uid, nomeEmpresa: nome, slug,
       icone: _wiz.emoji || nData.icon, nicho,
       corPrimaria: nData.accent, telefone: whats,
       instagram: val('wiz-insta'), cidade: val('wiz-cidade'),
-      descricao: val('wiz-desc'), email,
+      descricao: val('wiz-desc'), email: userEmail,
       status: 'ativo', plano: 'trial',
       expiresAt: firebase.firestore.Timestamp.fromDate(exp),
       criadaEm: serverTS()
     }
-    await db.collection('shopvity_empresas').doc(cred.user.uid).set(dadosEmpresa)
+    await db.collection('shopvity_empresas').doc(uid).set(dadosEmpresa)
     G.empresa = dadosEmpresa
     animLoad(2)
 
     // Upload fotos do wizard (logo, user, banner) se houver
-    if (_wizFotos.logo)   { const u = await uploadImg(_wizFotos.logo,   `shopvity/${cred.user.uid}/logo`);   await db.collection('shopvity_empresas').doc(cred.user.uid).update({ logo: u });   G.empresa.logo = u }
-    if (_wizFotos.banner) { const u = await uploadImg(_wizFotos.banner, `shopvity/${cred.user.uid}/banner`); await db.collection('shopvity_empresas').doc(cred.user.uid).update({ banner: u }); G.empresa.banner = u }
-    if (_wizFotos.user)   { const u = await uploadImg(_wizFotos.user,   `users/${cred.user.uid}/foto`);      await cred.user.updateProfile({ photoURL: u }) }
+    if (_wizFotos.logo)   { const u = await uploadImg(_wizFotos.logo,   `shopvity/${uid}/logo`);   await db.collection('shopvity_empresas').doc(uid).update({ logo: u });   G.empresa.logo = u }
+    if (_wizFotos.banner) { const u = await uploadImg(_wizFotos.banner, `shopvity/${uid}/banner`); await db.collection('shopvity_empresas').doc(uid).update({ banner: u }); G.empresa.banner = u }
+    if (_wizFotos.user)   { const u = await uploadImg(_wizFotos.user,   `users/${uid}/foto`);      await G.user.updateProfile({ photoURL: u }).catch(() => {}) }
 
     // Criar produtos pré-gerados do nicho
-    const col = db.collection('shopvity_empresas').doc(cred.user.uid).collection('anuncios')
+    const col = db.collection('shopvity_empresas').doc(uid).collection('anuncios')
     const batch = db.batch()
     nData.produtos.forEach(p => {
       const ref = col.doc()
@@ -1906,8 +1922,7 @@ async function wizCriarLoja(email, senha) {
         preco: p.preco, precoTexto: isNaN(parseFloat(p.preco)) ? p.preco : '',
         categoria: p.categoria, emoji: p.emoji,
         linkPagamento: '', whatsapp: whats,
-        empresaId: cred.user.uid,
-        criadoEm: serverTS()
+        empresaId: uid, criadoEm: serverTS()
       })
     })
     await batch.commit()
@@ -1921,7 +1936,7 @@ async function wizCriarLoja(email, senha) {
     $('wiz-ready-nome').textContent  = nome
     $('wiz-ready-link').textContent  = `${APP.dominio}/?v=${slug}`
 
-    G.anuncios = await db.collection('shopvity_empresas').doc(cred.user.uid).collection('anuncios').get().then(s => s.docs.map(d => ({id:d.id,...d.data()})))
+    G.anuncios = await db.collection('shopvity_empresas').doc(uid).collection('anuncios').get().then(s => s.docs.map(d => ({id:d.id,...d.data()})))
     atualizarPainelUI()
 
   } catch(e) {
