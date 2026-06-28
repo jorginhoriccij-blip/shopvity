@@ -8,6 +8,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="description" content="Crie sua loja online em 2 minutos. Vitrine digital, link próprio e vendas pelo WhatsApp.">
 <title>Shopvity — Crie sua loja online em 2 minutos</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900;1,14..32,400&display=swap" rel="stylesheet">
@@ -581,6 +583,25 @@ textarea.form-input { min-height: 100px; resize: vertical; }
 .cart-count{background:#ef4444;color:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
 
 /* ════════════════════════════════════════════════════════
+   BANNER PWA — aparece automaticamente na vitrine
+════════════════════════════════════════════════════════ */
+.pwa-banner {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 9995;
+  background: #fff; border-top: 1.5px solid var(--b200);
+  padding: 14px 20px; display: none; align-items: center; gap: 14px;
+  box-shadow: 0 -4px 24px rgba(0,0,0,.12);
+  animation: slideUp .4s cubic-bezier(.4,0,.2,1);
+}
+.pwa-banner.show { display: flex; }
+@keyframes slideUp { from { transform: translateY(100%); opacity:0 } to { transform:none; opacity:1 } }
+.pwa-banner-icon { width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg,var(--brand),var(--accent)); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0; }
+.pwa-banner-info { flex: 1; min-width: 0; }
+.pwa-banner-titulo { font-size: .88rem; font-weight: 700; color: var(--b900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pwa-banner-sub { font-size: .75rem; color: var(--b500); }
+.pwa-banner-btn { background: linear-gradient(135deg,var(--brand),var(--accent)); color: #fff; border: none; border-radius: 999px; padding: 9px 18px; font-size: .82rem; font-weight: 700; cursor: pointer; white-space: nowrap; font-family: var(--f); flex-shrink: 0; }
+.pwa-banner-close { background: none; border: none; font-size: 1.2rem; color: var(--b400); cursor: pointer; padding: 4px; flex-shrink: 0; }
+
+/* ════════════════════════════════════════════════════════
    RESPONSIVIDADE MOBILE
 ════════════════════════════════════════════════════════ */
 @media(max-width: 768px) {
@@ -707,6 +728,17 @@ textarea.form-input { min-height: 100px; resize: vertical; }
 
 
 <div class="toast" id="toast"></div>
+
+<!-- Banner PWA para a vitrine -->
+<div class="pwa-banner" id="pwa-banner">
+  <div class="pwa-banner-icon" id="pwa-banner-icon">🛍️</div>
+  <div class="pwa-banner-info">
+    <div class="pwa-banner-titulo" id="pwa-banner-nome">Instalar loja</div>
+    <div class="pwa-banner-sub">Adicionar ao celular — acesso rápido</div>
+  </div>
+  <button class="pwa-banner-btn" onclick="handleInstallVitrine()">📲 Instalar</button>
+  <button class="pwa-banner-close" onclick="fecharPwaBanner()" aria-label="Fechar">✕</button>
+</div>
 
 
 <div class="loader-overlay" id="loader">
@@ -1595,14 +1627,18 @@ let _deferredPrompt = null
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault()
   _deferredPrompt = e
-  // Hero e footer ganham destaque extra quando prompt disponível
   document.querySelectorAll('#hero-install-btn,#footer-install-btn').forEach(b => b.classList.add('visible'))
   if (window.innerWidth <= 768) document.getElementById('float-install-btn').classList.add('visible')
+  // Se a vitrine está aberta, mostrar banner de install automaticamente
+  if (document.getElementById('t-vitrine')?.classList.contains('ativa')) {
+    _mostrarPwaBannerVitrine()
+  }
 })
 
 window.addEventListener('appinstalled', () => {
   _deferredPrompt = null
   document.querySelectorAll('#hero-install-btn,#footer-install-btn,#float-install-btn').forEach(b => b.classList.remove('visible'))
+  fecharPwaBanner()
   toast('✅ App instalado com sucesso!', 'ok')
 })
 
@@ -1628,11 +1664,48 @@ function handleInstall() {
 
 // iOS — sempre mostrar o botão (Safari não dispara beforeinstallprompt)
 if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-  // Só mostra se ainda não está instalado (modo standalone = já instalou)
   if (!window.navigator.standalone) {
     document.querySelectorAll('#hero-install-btn,#footer-install-btn').forEach(b => b.classList.add('visible'))
     if (window.innerWidth <= 768) document.getElementById('float-install-btn').classList.add('visible')
   }
+}
+
+/* ════════════════════════════════════════════════════════
+   PWA BANNER — VITRINE (banner de install automático)
+════════════════════════════════════════════════════════ */
+let _pwaBannerTimer = null
+
+function _mostrarPwaBannerVitrine(nomeEmpresa, icone) {
+  const banner = document.getElementById('pwa-banner')
+  if (!banner) return
+  // Não mostrar se já está instalado como PWA
+  if (window.matchMedia('(display-mode: standalone)').matches) return
+  if (nomeEmpresa) document.getElementById('pwa-banner-nome').textContent = 'Instalar ' + nomeEmpresa
+  if (icone) document.getElementById('pwa-banner-icon').textContent = icone
+  banner.classList.add('show')
+}
+
+function fecharPwaBanner() {
+  const banner = document.getElementById('pwa-banner')
+  if (banner) banner.classList.remove('show')
+  clearTimeout(_pwaBannerTimer)
+}
+
+function handleInstallVitrine() {
+  if (_deferredPrompt) {
+    _deferredPrompt.prompt()
+    _deferredPrompt.userChoice.then(result => {
+      if (result.outcome === 'accepted') { _deferredPrompt = null; fecharPwaBanner() }
+    })
+    return
+  }
+  const ua = navigator.userAgent || ''
+  if (/iPhone|iPad|iPod/i.test(ua)) {
+    toast('No iPhone: toque em 📤 Compartilhar → "Adicionar à Tela Início"', 'ok')
+  } else {
+    toast('No Android: menu ⋮ do Chrome → "Instalar aplicativo"', 'ok')
+  }
+  fecharPwaBanner()
 }
 /* ════════════════════════════════════════════════════════
    ╔══════════════════════════════════════════════════╗
@@ -1934,7 +2007,7 @@ async function wizCriarLoja(email, senha) {
     $('wiz-e3').style.display = 'none'; $('wiz-e4').style.display = 'block'
     $('wiz-ready-emoji').textContent = _wiz.emoji || nData.icon
     $('wiz-ready-nome').textContent  = nome
-    $('wiz-ready-link').textContent  = `${APP.dominio}/?v=${slug}`
+    $('wiz-ready-link').textContent  = `${APP.origem}/?v=${slug}`
 
     G.anuncios = await db.collection('shopvity_empresas').doc(uid).collection('anuncios').get().then(s => s.docs.map(d => ({id:d.id,...d.data()})))
     atualizarPainelUI()
@@ -2000,10 +2073,11 @@ function serverTS() {
 }
 
 const APP = {
-  nome:     'Shopvity',          // Nome do produto — altere aqui
-  dominio:  'shopvity.com.br',     // Domínio público das vitrines
-  suporte:  '5512999999999',  // WhatsApp do suporte
-  trial:    7,                // Dias de teste grátis
+  nome:     'Shopvity',
+  get dominio() { return window.location.host },
+  get origem()  { return window.location.origin },
+  suporte:  '5512999999999',
+  trial:    7,
   precos:   { '1mes': 39, '3meses': 99, '6meses': 179, '12meses': 299 },
   meses:    { '1mes': 1,  '3meses': 3,  '6meses': 6,   '12meses': 12  }
 }
@@ -2204,7 +2278,7 @@ function atualizarPainelUI() {
   if (!G.empresa || !G.user) return
   const n = NICHOS[G.empresa.nicho] || NICHOS.servicos
   const slug = G.empresa.slug || gerarSlug(G.empresa.nomeEmpresa || '')
-  const url = `${APP.dominio}/?v=${slug}`
+  const url = `${APP.origem}/?v=${slug}`
 
   // Header
   $('painel-empresa-nome').textContent = (n.icon + ' ' + G.empresa.nomeEmpresa) || APP.nome
@@ -3242,15 +3316,15 @@ function _renderVitrineDemo() {
 function copiarLink() {
   if (!G.empresa) return
   const slug = G.empresa.slug || gerarSlug(G.empresa.nomeEmpresa)
-  const url = `${APP.dominio}/?v=${slug}`
-  navigator.clipboard?.writeText('https://' + url).then(() => toast('📋 Link copiado!', 'ok'))
+  const url = `${APP.origem}/?v=${slug}`
+  navigator.clipboard?.writeText(url).then(() => toast('📋 Link copiado!', 'ok'))
     .catch(() => toast(url, 'ok'))
 }
 
 function compartilharWpp() {
   if (!G.empresa) return
   const slug = G.empresa.slug || gerarSlug(G.empresa.nomeEmpresa)
-  const url = `https://${APP.dominio}/?v=${slug}`
+  const url = `${APP.origem}/?v=${slug}`
   const msg = encodeURIComponent(`Olha minha vitrine online! 🏪\n${G.empresa.nomeEmpresa}\n\nAcesse: ${url}`)
   window.open(`https://wa.me/?text=${msg}`, '_blank')
 }
@@ -3508,6 +3582,12 @@ async function carregarVitrine(slug) {
     window._vitCart  = window._vitCart || []
     window._vitWpp   = wpp
     window._vitNome  = empresa.nomePublico || empresa.nomeEmpresa
+
+    // Banner PWA automático após 3s (só se não está instalado)
+    clearTimeout(_pwaBannerTimer)
+    _pwaBannerTimer = setTimeout(() => {
+      _mostrarPwaBannerVitrine(empresa.nomeEmpresa, n.icon)
+    }, 3000)
 
     const vitCats = ['Todos', ...new Set(anuncios.map(a => a.categoria).filter(Boolean))]
     let _vitCatAtivo = 'Todos'
