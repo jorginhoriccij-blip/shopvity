@@ -641,24 +641,29 @@ auth.onAuthStateChanged(async user=>{
   const isPublicPath=pp.length>0&&!_INTERNAS.includes(pp[0])
   const pub=isPublicPath||qs.get('v')||qs.get('r')
   if(pub){
-    // Está numa vitrine — verificar se é o dono
     if(user&&$('t-vitrine').classList.contains('ativa')){
       await verificarOwner()
     }
     return
   }
   if(!user){ir('landing');return}
+  // Slug em cache → vai direto sem esperar Firestore
+  const slugCache=localStorage.getItem('shopvity_slug')
+  if(slugCache){window.location.href='/'+slugCache;return}
   loader('Carregando sua loja...')
+  const _timeout=setTimeout(()=>{fecharLoader();toast('Conexão lenta. Tente novamente.','warn');ir('landing')},10000)
   try{
     const snap=await db.collection('shopvity_empresas').doc(user.uid).get()
+    clearTimeout(_timeout)
     if(!snap.exists){fecharLoader();ir('wizard');wizStep(1);return}
     G.empresa=snap.data()
     const agora=new Date(),exp=G.empresa.expiresAt?.toDate?.()
     if(exp&&agora>exp){fecharLoader();ir('expired');return}
     fecharLoader()
     const slug=G.empresa.slug||gerarSlug(G.empresa.nomeEmpresa||'')
+    localStorage.setItem('shopvity_slug',slug)
     window.location.href='/'+slug
-  }catch(e){fecharLoader();toast('Erro: '+e.message,'err');ir('landing')}
+  }catch(e){clearTimeout(_timeout);fecharLoader();toast('Erro: '+e.message,'err');ir('landing')}
 })
 
 async function verificarOwner(){
@@ -737,7 +742,7 @@ async function loginGoogle(){
   try{await auth.signInWithPopup(gProv)}catch(e){toast('Erro: '+e.message,'err')}
 }
 
-async function logout(){await auth.signOut();G={user:null,empresa:null,anuncios:[],pedidos:[],wizNicho:null,modoOwner:false};window.location.href='/'}
+async function logout(){await auth.signOut();localStorage.removeItem('shopvity_slug');G={user:null,empresa:null,anuncios:[],pedidos:[],wizNicho:null,modoOwner:false};window.location.href='/'}
 
 /* ── WIZARD ── */
 let _wizStep=1
@@ -788,6 +793,7 @@ async function _wizCriar(getUser){
     const dados={uid:user.uid,nomeEmpresa:nome,slug,icone:n.icon,nicho:G.wizNicho,telefone:whats,cidade:val('wiz-cidade'),descricao:val('wiz-desc-loja'),email:user.email,status:'ativo',plano:'trial',expiresAt:firebase.firestore.Timestamp.fromDate(exp),criadaEm:serverTS()}
     await db.collection('shopvity_empresas').doc(user.uid).set(dados)
     G.empresa=dados
+    localStorage.setItem('shopvity_slug',slug)
     $('wiz-link').textContent=`${location.origin}/${slug}`
     $('wiz-link').dataset.url=`${location.origin}/${slug}`
     $('wiz-bar').style.width='100%'
@@ -850,6 +856,7 @@ async function carregarVitrine(slug){
         if(!G.empresa){const s=await db.collection('shopvity_empresas').doc(G.user.uid).get();if(s.exists)G.empresa=s.data()}
         if(G.empresa?.slug===slug){
           G.modoOwner=true
+          localStorage.setItem('shopvity_slug',slug)
           $('t-vitrine').classList.add('owner-mode')
           $('owner-bar').style.display='flex'
           $('owner-avatar').textContent=(emp.nomeEmpresa||'U').charAt(0).toUpperCase()
