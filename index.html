@@ -2009,7 +2009,7 @@ async function wizCriarLoja(email, senha) {
     $('wiz-e3').style.display = 'none'; $('wiz-e4').style.display = 'block'
     $('wiz-ready-emoji').textContent = _wiz.emoji || nData.icon
     $('wiz-ready-nome').textContent  = nome
-    $('wiz-ready-link').textContent  = `${APP.origem}/?v=${slug}`
+    $('wiz-ready-link').textContent  = `${APP.origem}/vitrine/${slug}`
 
     G.anuncios = await db.collection('shopvity_empresas').doc(uid).collection('anuncios').get().then(s => s.docs.map(d => ({id:d.id,...d.data()})))
     atualizarPainelUI()
@@ -2280,7 +2280,7 @@ function atualizarPainelUI() {
   if (!G.empresa || !G.user) return
   const n = NICHOS[G.empresa.nicho] || NICHOS.servicos
   const slug = G.empresa.slug || gerarSlug(G.empresa.nomeEmpresa || '')
-  const url = `${APP.origem}/?v=${slug}`
+  const url = `${APP.origem}/vitrine/${slug}`
 
   // Header
   $('painel-empresa-nome').textContent = (n.icon + ' ' + G.empresa.nomeEmpresa) || APP.nome
@@ -3261,7 +3261,7 @@ async function galExcluir(anuncioId) {
 function abrirVitrine() {
   if (!G.empresa) { toast('Crie sua loja primeiro', 'err'); return }
   const slug = G.empresa.slug || gerarSlug(G.empresa.nomeEmpresa)
-  window.open(`${window.location.origin}${window.location.pathname}?v=${slug}`, '_blank')
+  window.open(`${window.location.origin}/vitrine/${slug}`, '_blank')
 }
 
 function _renderVitrineDemo() {
@@ -3318,7 +3318,7 @@ function _renderVitrineDemo() {
 function copiarLink() {
   if (!G.empresa) return
   const slug = G.empresa.slug || gerarSlug(G.empresa.nomeEmpresa)
-  const url = `${APP.origem}/?v=${slug}`
+  const url = `${APP.origem}/vitrine/${slug}`
   navigator.clipboard?.writeText(url).then(() => toast('📋 Link copiado!', 'ok'))
     .catch(() => toast(url, 'ok'))
 }
@@ -3326,7 +3326,7 @@ function copiarLink() {
 function compartilharWpp() {
   if (!G.empresa) return
   const slug = G.empresa.slug || gerarSlug(G.empresa.nomeEmpresa)
-  const url = `${APP.origem}/?v=${slug}`
+  const url = `${APP.origem}/vitrine/${slug}`
   const msg = encodeURIComponent(`Olha minha vitrine online! 🏪\n${G.empresa.nomeEmpresa}\n\nAcesse: ${url}`)
   window.open(`https://wa.me/?text=${msg}`, '_blank')
 }
@@ -3347,7 +3347,8 @@ if ('serviceWorker' in navigator) {
 ════════════════════════════════════════════════════════ */
 ;(async () => {
   const params = new URLSearchParams(window.location.search)
-  const v = params.get('v')
+  const pathParts = window.location.pathname.split('/').filter(Boolean)
+  const v = (pathParts[0] === 'vitrine' && pathParts[1]) ? decodeURIComponent(pathParts[1]) : params.get('v')
   const r = params.get('r')
   const e = params.get('e')
   if (v) { await carregarVitrine(v); return }
