@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shopvity Admin</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f1f5f9;color:#1e293b;min-height:100vh}
+.topbar{background:#7c3aed;color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
+.topbar h1{font-size:1.1rem;font-weight:800;letter-spacing:-.5px}
+.topbar span{font-size:.8rem;opacity:.8}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:20px;max-width:900px;margin:0 auto}
+.stat{background:#fff;border-radius:12px;padding:16px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.stat-n{font-size:1.8rem;font-weight:800;color:#7c3aed}
+.stat-l{font-size:.78rem;color:#64748b;margin-top:2px}
+.container{max-width:900px;margin:0 auto;padding:0 20px 40px}
+h2{font-size:.95rem;font-weight:700;margin-bottom:12px;color:#334155}
+.filters{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.filter-btn{background:#fff;border:1.5px solid #e2e8f0;border-radius:999px;padding:6px 14px;font-size:.8rem;font-weight:600;cursor:pointer;color:#64748b;transition:.15s}
+.filter-btn.ativo{background:#7c3aed;border-color:#7c3aed;color:#fff}
+.card-loja{background:#fff;border-radius:12px;padding:16px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.08);display:flex;align-items:center;gap:14px}
+.loja-avatar{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#7c3aed,#4f46e5);display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0}
+.loja-info{flex:1;min-width:0}
+.loja-nome{font-weight:700;font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.loja-email{font-size:.78rem;color:#64748b;margin-top:1px}
+.loja-meta{font-size:.75rem;color:#94a3b8;margin-top:3px}
+.badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:.72rem;font-weight:700;margin-top:4px}
+.badge-trial{background:#fef3c7;color:#92400e}
+.badge-ativo{background:#dcfce7;color:#166534}
+.badge-expirado{background:#fee2e2;color:#991b1b}
+.loja-btns{display:flex;gap:6px;flex-shrink:0}
+.btn{border:none;border-radius:8px;padding:7px 12px;font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s}
+.btn-ativar{background:#dcfce7;color:#166534}
+.btn-ativar:hover{background:#bbf7d0}
+.btn-desativar{background:#fee2e2;color:#991b1b}
+.btn-desativar:hover{background:#fecaca}
+.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+.login-card{background:#fff;border-radius:16px;padding:36px 28px;max-width:340px;width:100%;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.1)}
+.login-logo{font-size:2rem;margin-bottom:8px}
+.login-card h1{font-size:1.2rem;font-weight:800;margin-bottom:4px}
+.login-card p{font-size:.85rem;color:#64748b;margin-bottom:24px}
+.btn-google{display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;border:2px solid #e2e8f0;border-radius:10px;padding:12px 20px;font-size:.9rem;font-weight:700;cursor:pointer;width:100%;font-family:inherit;transition:.15s}
+.btn-google:hover{border-color:#7c3aed;background:#faf5ff}
+.acesso-negado{color:#991b1b;font-size:.85rem;margin-top:12px}
+#app{display:none}
+#login{display:flex}
+.loading{text-align:center;padding:40px;color:#94a3b8;font-size:.9rem}
+.vazio{text-align:center;padding:40px;color:#94a3b8}
+</style>
+</head>
+<body>
+
+<div id="login" class="login-wrap">
+  <div class="login-card">
+    <div class="login-logo">🛍️</div>
+    <h1>Shopvity Admin</h1>
+    <p>Acesso restrito ao administrador</p>
+    <button class="btn-google" onclick="loginGoogle()">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.2l6.8-6.8C35.8 2.5 30.2 0 24 0 14.7 0 6.7 5.4 2.8 13.3l7.9 6.1C12.7 13.1 17.9 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.5 2.9-2.2 5.4-4.7 7l7.3 5.7c4.3-3.9 6.7-9.7 6.7-16.7z"/><path fill="#FBBC05" d="M10.7 28.6A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.1.7-4.6L2.3 13.3A23.9 23.9 0 0 0 0 24c0 3.8.9 7.4 2.5 10.6l8.2-6z"/><path fill="#34A853" d="M24 48c6.2 0 11.4-2 15.2-5.5l-7.3-5.7c-2 1.4-4.6 2.2-7.9 2.2-6.1 0-11.3-3.6-13.3-9l-7.9 6.1C6.7 42.6 14.7 48 24 48z"/></svg>
+      Entrar com Google
+    </button>
+    <div id="erro-acesso" class="acesso-negado" style="display:none">⛔ Acesso negado. Conta não autorizada.</div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <h1>🛍️ Shopvity Admin</h1>
+    <span id="admin-email"></span>
+  </div>
+
+  <div class="stats" id="stats-grid">
+    <div class="stat"><div class="stat-n" id="s-total">—</div><div class="stat-l">Total de lojas</div></div>
+    <div class="stat"><div class="stat-n" id="s-trial" style="color:#d97706">—</div><div class="stat-l">Em trial</div></div>
+    <div class="stat"><div class="stat-n" id="s-ativo" style="color:#16a34a">—</div><div class="stat-l">Ativos (pagos)</div></div>
+    <div class="stat"><div class="stat-n" id="s-expirado" style="color:#dc2626">—</div><div class="stat-l">Expirados</div></div>
+  </div>
+
+  <div class="container">
+    <div class="filters">
+      <button class="filter-btn ativo" onclick="filtrar('todos',this)">Todos</button>
+      <button class="filter-btn" onclick="filtrar('trial',this)">⏳ Trial</button>
+      <button class="filter-btn" onclick="filtrar('ativo',this)">✅ Ativos</button>
+      <button class="filter-btn" onclick="filtrar('expirado',this)">❌ Expirados</button>
+    </div>
+    <div id="lista-lojas"><div class="loading">Carregando...</div></div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script>
+const ADMIN_EMAIL = 'jorginho.riccij@gmail.com'
+const FIREBASE_CONFIG = {
+  apiKey:        'AIzaSyAPRe8ZR7UZxpF80pq44CSc6ViFl3_baH8',
+  authDomain:    'imobconnect-eecb2.firebaseapp.com',
+  projectId:     'imobconnect-eecb2',
+  storageBucket: 'imobconnect-eecb2.firebasestorage.app'
+}
+
+firebase.initializeApp(FIREBASE_CONFIG)
+const auth = firebase.auth()
+const db   = firebase.firestore()
+const provider = new firebase.auth.GoogleAuthProvider()
+
+let _todasLojas = []
+let _filtroAtual = 'todos'
+
+auth.onAuthStateChanged(async user => {
+  if (!user) return
+  if (user.email !== ADMIN_EMAIL) {
+    await auth.signOut()
+    document.getElementById('erro-acesso').style.display = 'block'
+    return
+  }
+  document.getElementById('login').style.display = 'none'
+  document.getElementById('app').style.display = 'block'
+  document.getElementById('admin-email').textContent = user.email
+  await carregarLojas()
+})
+
+async function loginGoogle() {
+  try { await auth.signInWithPopup(provider) } catch(e) { alert('Erro: ' + e.message) }
+}
+
+function statusLoja(empresa) {
+  const agora = new Date()
+  const exp = empresa.expiresAt?.toDate?.() || null
+  if (!exp) return 'trial'
+  if (agora > exp) return 'expirado'
+  if (empresa.plano === 'trial') return 'trial'
+  return 'ativo'
+}
+
+function diasRestantes(empresa) {
+  const exp = empresa.expiresAt?.toDate?.() || null
+  if (!exp) return null
+  const diff = Math.ceil((exp - new Date()) / 86400000)
+  return diff
+}
+
+async function carregarLojas() {
+  document.getElementById('lista-lojas').innerHTML = '<div class="loading">Carregando...</div>'
+  try {
+    const snap = await db.collection('shopvity_empresas').orderBy('criadaEm', 'desc').get()
+    _todasLojas = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    atualizarStats()
+    renderLista()
+  } catch(e) {
+    document.getElementById('lista-lojas').innerHTML = '<div class="vazio">Erro: ' + e.message + '</div>'
+  }
+}
+
+function atualizarStats() {
+  const total    = _todasLojas.length
+  const trials   = _todasLojas.filter(l => statusLoja(l) === 'trial').length
+  const ativos   = _todasLojas.filter(l => statusLoja(l) === 'ativo').length
+  const expirados = _todasLojas.filter(l => statusLoja(l) === 'expirado').length
+  document.getElementById('s-total').textContent     = total
+  document.getElementById('s-trial').textContent     = trials
+  document.getElementById('s-ativo').textContent     = ativos
+  document.getElementById('s-expirado').textContent  = expirados
+}
+
+function filtrar(tipo, btn) {
+  _filtroAtual = tipo
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('ativo'))
+  btn.classList.add('ativo')
+  renderLista()
+}
+
+function renderLista() {
+  const lista = _filtroAtual === 'todos' ? _todasLojas : _todasLojas.filter(l => statusLoja(l) === _filtroAtual)
+  if (!lista.length) {
+    document.getElementById('lista-lojas').innerHTML = '<div class="vazio">Nenhuma loja encontrada.</div>'
+    return
+  }
+  document.getElementById('lista-lojas').innerHTML = lista.map(l => {
+    const st  = statusLoja(l)
+    const dias = diasRestantes(l)
+    const exp = l.expiresAt?.toDate?.()
+    const expStr = exp ? exp.toLocaleDateString('pt-BR') : '—'
+    const criada = l.criadaEm?.toDate?.()
+    const criadaStr = criada ? criada.toLocaleDateString('pt-BR') : '—'
+    const badgeClass = st === 'ativo' ? 'badge-ativo' : st === 'trial' ? 'badge-trial' : 'badge-expirado'
+    const badgeLabel = st === 'ativo' ? '✅ Ativo' : st === 'trial' ? `⏳ Trial${dias != null ? ' — ' + dias + 'd' : ''}` : '❌ Expirado'
+    return `<div class="card-loja">
+      <div class="loja-avatar">${l.icone || '🏪'}</div>
+      <div class="loja-info">
+        <div class="loja-nome">${esc(l.nomeEmpresa || '—')}</div>
+        <div class="loja-email">${esc(l.email || '—')}</div>
+        <div class="loja-meta">Criada: ${criadaStr} · Expira: ${expStr}</div>
+        <span class="badge ${badgeClass}">${badgeLabel}</span>
+      </div>
+      <div class="loja-btns">
+        <button class="btn btn-ativar" onclick="ativar('${l.id}')">+30 dias</button>
+        <button class="btn btn-desativar" onclick="desativar('${l.id}')">Pausar</button>
+      </div>
+    </div>`
+  }).join('')
+}
+
+async function ativar(id) {
+  const exp = new Date()
+  exp.setDate(exp.getDate() + 30)
+  try {
+    await db.collection('shopvity_empresas').doc(id).update({
+      expiresAt: firebase.firestore.Timestamp.fromDate(exp),
+      plano: 'pago',
+      status: 'ativo'
+    })
+    const idx = _todasLojas.findIndex(l => l.id === id)
+    if (idx >= 0) { _todasLojas[idx].expiresAt = { toDate: () => exp }; _todasLojas[idx].plano = 'pago'; _todasLojas[idx].status = 'ativo' }
+    atualizarStats(); renderLista()
+    alert('✅ Loja ativada por 30 dias!')
+  } catch(e) { alert('Erro: ' + e.message) }
+}
+
+async function desativar(id) {
+  if (!confirm('Pausar esta loja?')) return
+  const ontem = new Date(); ontem.setDate(ontem.getDate() - 1)
+  try {
+    await db.collection('shopvity_empresas').doc(id).update({
+      expiresAt: firebase.firestore.Timestamp.fromDate(ontem),
+      status: 'pausado'
+    })
+    const idx = _todasLojas.findIndex(l => l.id === id)
+    if (idx >= 0) { _todasLojas[idx].expiresAt = { toDate: () => ontem }; _todasLojas[idx].status = 'pausado' }
+    atualizarStats(); renderLista()
+    alert('⏸️ Loja pausada.')
+  } catch(e) { alert('Erro: ' + e.message) }
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+</script>
+</body>
+</html>
