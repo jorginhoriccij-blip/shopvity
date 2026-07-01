@@ -197,6 +197,7 @@ function renderLista() {
       <div class="loja-btns">
         <button class="btn btn-ativar" onclick="ativar('${l.id}')">+30 dias</button>
         <button class="btn btn-desativar" onclick="desativar('${l.id}')">Pausar</button>
+        <button class="btn" style="background:#fee2e2;color:#991b1b" onclick="excluir('${l.id}','${esc(l.nomeEmpresa||'')}')">🗑️</button>
       </div>
     </div>`
   }).join('')
@@ -230,6 +231,16 @@ async function desativar(id) {
     if (idx >= 0) { _todasLojas[idx].expiresAt = { toDate: () => ontem }; _todasLojas[idx].status = 'pausado' }
     atualizarStats(); renderLista()
     alert('⏸️ Loja pausada.')
+  } catch(e) { alert('Erro: ' + e.message) }
+}
+
+async function excluir(id, nome) {
+  if (!confirm(`Excluir a loja "${nome}"?\nEsta ação não pode ser desfeita.`)) return
+  try {
+    await db.collection('shopvity_empresas').doc(id).delete()
+    _todasLojas = _todasLojas.filter(l => l.id !== id)
+    atualizarStats(); renderLista()
+    alert('🗑️ Loja excluída.')
   } catch(e) { alert('Erro: ' + e.message) }
 }
 
