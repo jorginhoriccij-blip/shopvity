@@ -474,7 +474,7 @@ textarea.inp{resize:vertical;min-height:84px}
     <button class="vit-add-btn" onclick="abrirModalProd(null)" title="Adicionar produto">+</button>
   </div>
   <div class="vit-cats" id="vit-cats"></div>
-  <div class="vit-cats" id="vit-cats-bottom" style="display:none"></div>
+</div>
   <div class="vit-grid" id="vit-grid">
     <div class="vit-vazia"><div class="vit-vazia-ico">📦</div><p>Carregando...</p></div>
   </div>
@@ -696,7 +696,7 @@ const gProv   = new firebase.auth.GoogleAuthProvider()
 const serverTS = () => firebase.firestore.FieldValue.serverTimestamp()
 
 /* ── ESTADO ── */
-let G = { user:null, empresa:null, anuncios:[], pedidos:[], wizNicho:null, modoOwner:false }
+let G = { user:null, empresa:null, pedidos:[], wizNicho:null, modoOwner:false }
 let _prodFotoFile = null
 
 /* ── UTILS ── */
@@ -754,26 +754,20 @@ auth.onAuthStateChanged(async user=>{
 })
 
 async function verificarOwner(){
-  if(!G.user||!G.empresa){
-    // Tentar carregar empresa do user logado
-    if(G.user){
-      try{
-        const snap=await db.collection('shopvity_empresas').doc(G.user.uid).get()
-        if(snap.exists) G.empresa=snap.data()
-      }catch(_){}
-    }
+  if(!G.user) return
+  if(!G.empresa){
+    try{const s=await db.collection('shopvity_empresas').doc(G.user.uid).get();if(s.exists)G.empresa=s.data()}catch(_){}
   }
   const vitSlug=$('vit-nome').dataset.slug||''
-  const empSlug=G.empresa?.slug||''
-  const isOwner=G.user&&empSlug&&empSlug===vitSlug
-  G.modoOwner=isOwner
-  if(isOwner){
-    document.getElementById('t-vitrine').classList.add('owner-mode')
-    $('owner-bar').style.display='flex'
-    $('owner-avatar').textContent=(G.empresa.nomeEmpresa||'U').charAt(0).toUpperCase()
-    atualizarTrialBar()
-    atualizarDrawer()
-  }
+  if(!vitSlug||G.empresa?.slug!==vitSlug) return
+  G.modoOwner=true
+  localStorage.setItem('shopvity_slug',vitSlug)
+  $('t-vitrine').classList.add('owner-mode')
+  $('owner-bar').style.display='flex'
+  $('owner-avatar').textContent=(G.empresa.nomeEmpresa||'U').charAt(0).toUpperCase()
+  atualizarTrialBar()
+  await carregarPedidos()
+  atualizarDrawer()
 }
 
 function atualizarTrialBar(){
@@ -1018,22 +1012,7 @@ async function carregarVitrine(slug){
     }
     _vitProds=aSnap.docs.map(d=>({id:d.id,...d.data()}))
     renderVitrine(_vitProds,'Todos')
-    // Verificar se é o dono logado
-    if(G.user){
-      try{
-        if(!G.empresa){const s=await db.collection('shopvity_empresas').doc(G.user.uid).get();if(s.exists)G.empresa=s.data()}
-        if(G.empresa?.slug===slug){
-          G.modoOwner=true
-          localStorage.setItem('shopvity_slug',slug)
-          $('t-vitrine').classList.add('owner-mode')
-          $('owner-bar').style.display='flex'
-          $('owner-avatar').textContent=(emp.nomeEmpresa||'U').charAt(0).toUpperCase()
-          atualizarTrialBar()
-          await carregarPedidos()
-          atualizarDrawer()
-        }
-      }catch(_){}
-    }
+    await verificarOwner()
   }catch(e){$('vit-nome').textContent='Erro ao carregar vitrine'}
 }
 
@@ -1060,13 +1039,6 @@ function renderVitrine(prods,cat){
 }
 
 function vitCat(cat){renderVitrine(_vitProds,cat)}
-
-function vitPedir(id){
-  const p=_vitProds.find(x=>x.id===id);if(!p) return
-  if(p.linkPagamento){window.open(p.linkPagamento,'_blank');return}
-  const msg=encodeURIComponent('Olá! Quero: '+(p.titulo||''))
-  window.open(`https://wa.me/55${_vitWpp}?text=${msg}`,'_blank')
-}
 
 /* ── PRODUTOS (owner) ── */
 function abrirModalProd(id){
@@ -1102,7 +1074,7 @@ async function salvarProd(){
     // Recarregar vitrine
     const slug=G.empresa?.slug
     if(slug){const aSnap=await db.collection('shopvity_empresas').doc(G.user.uid).collection('anuncios').orderBy('criadoEm','desc').get();_vitProds=aSnap.docs.map(d=>({id:d.id,...d.data()}));renderVitrine(_vitProds,_vitCatAtiva)}
-  }catch(e){fecharLoader();alert('Erro ao salvar: '+e.message)}
+  }catch(e){fecharLoader();toast('Erro ao salvar: '+e.message,'err')}
 }
 async function excluirProd(){
   const id=val('prod-id');if(!id) return
@@ -1250,18 +1222,16 @@ function renderTimeline(statusAtual){
 })()
 
 /* ── PWA ── */
-// Feature 3: rotas de totem/tablet fixo que pulam o banner de instalação
-const _TOTEM_PATHS=[]  // ex: ['totem','kiosk'] — adicionar aqui quando criar essas rotas
+const _TOTEM_PATHS=[]
 const _isStandalone=window.matchMedia('(display-mode: standalone)').matches||!!navigator.standalone
 const _isIOS=/iPhone|iPad|iPod/i.test(navigator.userAgent)
 let _deferredPrompt=null
 
-// Feature 1: verifica se pode mostrar o banner
 function _podeMostrarPWA(){
-  if(_isStandalone) return false                                  // já instalado
-  if(sessionStorage.getItem('pwa_fechado')) return false          // fechou nesta sessão
+  if(_isStandalone) return false
+  if(sessionStorage.getItem('pwa_fechado')) return false
   const pp=window.location.pathname.split('/').filter(Boolean)
-  if(pp[0]&&(_TOTEM_PATHS.includes(pp[0])||_INTERNAS.includes(pp[0]))) return false // rota especial
+  if(pp[0]&&(_TOTEM_PATHS.includes(pp[0])||_INTERNAS.includes(pp[0]))) return false
   return true
 }
 
@@ -1289,14 +1259,11 @@ function pwaBannerInstall(){
   }else{pwaBannerFechar()}
 }
 
-// Android: captura evento nativo e mostra nosso banner após 2s
 window.addEventListener('beforeinstallprompt',e=>{
   e.preventDefault()
   _deferredPrompt=e
   setTimeout(pwaBannerMostrar,2000)
 })
-
-// iOS: sem beforeinstallprompt — mostra instruções manuais após 2s
 if(_isIOS&&!_isStandalone) setTimeout(pwaBannerMostrar,2000)
 
 window.addEventListener('appinstalled',()=>{
@@ -1305,16 +1272,12 @@ window.addEventListener('appinstalled',()=>{
   toast('✅ App instalado!','ok')
 })
 
-// Feature 2: notificações push (só quando instalado/standalone)
-// ⚠️ NECESSÁRIO para envio real: gerar VAPID key no Firebase Console →
-//    Project Settings → Cloud Messaging → Web Push certificates
-//    e criar /firebase-messaging-sw.js no projeto
-const _VAPID_KEY=''  // cole aqui a chave do Firebase Console quando tiver
+/* ── NOTIFICAÇÕES ── */
+const _VAPID_KEY=''  // cole a VAPID key do Firebase Console → Project Settings → Cloud Messaging
 const _notifBanner=$('notif-banner')
 
 function _notifDeveMostrar(){
-  if(!_isStandalone) return false                                 // só quando instalado
-  if(!('Notification' in window)) return false
+  if(!_isStandalone||!('Notification' in window)) return false
   if(Notification.permission==='granted'||Notification.permission==='denied') return false
   if(sessionStorage.getItem('notif_fechado')) return false
   return true
@@ -1332,7 +1295,6 @@ async function pedirNotificacao(){
   if(perm==='granted'){
     toast('🔔 Notificações ativadas!','ok')
     if(_VAPID_KEY&&G.user){
-      // Quando VAPID_KEY estiver configurada, obter token FCM e salvar no Firestore
       try{
         const messaging=firebase.messaging()
         const token=await messaging.getToken({vapidKey:_VAPID_KEY})
@@ -1342,17 +1304,6 @@ async function pedirNotificacao(){
   }else if(perm==='denied'){toast('Permissão negada. Ative nas configurações do celular.','warn')}
 }
 
-// Reinscription silenciosa se já tem permissão e VAPID configurada
-async function _notifReinscricao(){
-  if(!_isStandalone||!_VAPID_KEY||!G.user||Notification.permission!=='granted') return
-  try{
-    const messaging=firebase.messaging()
-    const token=await messaging.getToken({vapidKey:_VAPID_KEY})
-    if(token) await db.collection('shopvity_empresas').doc(G.user.uid).update({fcmToken:token})
-  }catch(_){}
-}
-
-// Mostrar banner de notificação 2s após auth carregar (se standalone)
 if(_isStandalone) setTimeout(()=>{if(_notifDeveMostrar())_notifBanner.classList.add('show')},2000)
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{})
