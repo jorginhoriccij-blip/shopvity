@@ -250,9 +250,18 @@ textarea.inp{resize:vertical;min-height:84px}
 .foto-area img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .foto-area-txt{font-size:.8rem;color:var(--t3);text-align:center;position:relative;z-index:1;font-weight:500}
 
-/* PWA float */
-.install-float{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:600;background:var(--grad);color:#fff;border:none;border-radius:999px;padding:13px 24px;font-size:.86rem;font-weight:700;cursor:pointer;font-family:var(--f);box-shadow:0 8px 28px rgba(124,58,237,.5);display:none;align-items:center;gap:8px;white-space:nowrap}
-.install-float.show{display:flex}
+/* PWA Install Banner */
+#pwa-banner{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1.5px solid var(--border);z-index:800;padding:14px 18px;display:none;align-items:center;gap:12px;box-shadow:0 -6px 32px rgba(90,50,180,.13);transform:translateY(100%);transition:transform .35s cubic-bezier(.34,1.2,.64,1)}
+#pwa-banner.show{display:flex;transform:translateY(0)}
+.pwa-logo{width:44px;height:44px;border-radius:13px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;box-shadow:0 3px 10px rgba(124,58,237,.3)}
+.pwa-txt{flex:1;min-width:0}
+.pwa-titulo{font-size:.88rem;font-weight:800;color:var(--t1);margin-bottom:2px}
+.pwa-sub{font-size:.73rem;color:var(--t3);line-height:1.4}
+.pwa-btn{background:var(--grad);color:#fff;border:none;border-radius:999px;padding:9px 18px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:var(--f);white-space:nowrap;flex-shrink:0;box-shadow:0 3px 12px rgba(124,58,237,.35)}
+.pwa-close{background:none;border:none;color:var(--t4);font-size:1.2rem;padding:6px;cursor:pointer;flex-shrink:0;line-height:1}
+/* Notification Banner */
+#notif-banner{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1.5px solid var(--border);z-index:799;padding:14px 18px;display:none;align-items:center;gap:12px;box-shadow:0 -6px 32px rgba(90,50,180,.13);transform:translateY(100%);transition:transform .35s cubic-bezier(.34,1.2,.64,1)}
+#notif-banner.show{display:flex;transform:translateY(0)}
 
 /* CARRINHO */
 .cart-float{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:500;background:#22c55e;color:#fff;border:none;border-radius:999px;padding:14px 28px;font-size:.9rem;font-weight:800;cursor:pointer;font-family:var(--f);box-shadow:0 6px 28px rgba(34,197,94,.45);white-space:nowrap;animation:slideUp .3s cubic-bezier(.34,1.56,.64,1)}
@@ -272,7 +281,28 @@ textarea.inp{resize:vertical;min-height:84px}
 
 <div id="toast"></div>
 <div id="loader"><div class="spin"></div><div id="loader-txt">Carregando...</div></div>
-<button class="install-float" id="btn-install" onclick="handleInstall()">📲 Instalar App</button>
+
+<!-- Banner instalar PWA -->
+<div id="pwa-banner">
+  <div class="pwa-logo">🛍️</div>
+  <div class="pwa-txt">
+    <div class="pwa-titulo">Adicionar à tela inicial</div>
+    <div class="pwa-sub" id="pwa-sub">É rápido e ocupa quase nada de espaço</div>
+  </div>
+  <button class="pwa-btn" id="pwa-btn" onclick="pwaBannerInstall()">Instalar</button>
+  <button class="pwa-close" onclick="pwaBannerFechar()">✕</button>
+</div>
+
+<!-- Banner notificações (só standalone) -->
+<div id="notif-banner">
+  <div class="pwa-logo" style="background:linear-gradient(135deg,#f59e0b,#ef4444)">🔔</div>
+  <div class="pwa-txt">
+    <div class="pwa-titulo">Ativar notificações</div>
+    <div class="pwa-sub">Receba alertas de novos pedidos na hora</div>
+  </div>
+  <button class="pwa-btn" style="background:linear-gradient(135deg,#f59e0b,#ef4444);box-shadow:0 3px 12px rgba(239,68,68,.3)" onclick="pedirNotificacao()">Ativar</button>
+  <button class="pwa-close" onclick="fecharNotifBanner()">✕</button>
+</div>
 
 <!-- ══════════════════════════════════════════════
      LANDING
@@ -1190,15 +1220,111 @@ function renderTimeline(statusAtual){
 })()
 
 /* ── PWA ── */
+// Feature 3: rotas de totem/tablet fixo que pulam o banner de instalação
+const _TOTEM_PATHS=[]  // ex: ['totem','kiosk'] — adicionar aqui quando criar essas rotas
+const _isStandalone=window.matchMedia('(display-mode: standalone)').matches||!!navigator.standalone
+const _isIOS=/iPhone|iPad|iPod/i.test(navigator.userAgent)
 let _deferredPrompt=null
-window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();_deferredPrompt=e;$('btn-install').classList.add('show')})
-window.addEventListener('appinstalled',()=>{_deferredPrompt=null;$('btn-install').classList.remove('show');toast('✅ App instalado!','ok')})
-function handleInstall(){
-  if(_deferredPrompt){_deferredPrompt.prompt();_deferredPrompt.userChoice.then(r=>{if(r.outcome==='accepted'){_deferredPrompt=null;$('btn-install').classList.remove('show')}});return}
-  if(/iPhone|iPad|iPod/i.test(navigator.userAgent)) toast('iPhone: toque em 📤 Compartilhar → "Adicionar à Tela Início"','ok')
-  else toast('Android: menu ⋮ → "Instalar aplicativo"','ok')
+
+// Feature 1: verifica se pode mostrar o banner
+function _podeMostrarPWA(){
+  if(_isStandalone) return false                                  // já instalado
+  if(sessionStorage.getItem('pwa_fechado')) return false          // fechou nesta sessão
+  const pp=window.location.pathname.split('/').filter(Boolean)
+  if(pp[0]&&(_TOTEM_PATHS.includes(pp[0])||_INTERNAS.includes(pp[0]))) return false // rota especial
+  return true
 }
-if(/iPhone|iPad|iPod/i.test(navigator.userAgent)&&!navigator.standalone) $('btn-install').classList.add('show')
+
+function pwaBannerMostrar(){
+  if(!_podeMostrarPWA()) return
+  if(_isIOS){
+    $('pwa-sub').textContent='Toque em 📤 Compartilhar → "Adicionar à Tela Início"'
+    $('pwa-btn').textContent='Entendi'
+    $('pwa-btn').onclick=pwaBannerFechar
+  }
+  $('pwa-banner').classList.add('show')
+}
+
+function pwaBannerFechar(){
+  $('pwa-banner').classList.remove('show')
+  sessionStorage.setItem('pwa_fechado','1')
+}
+
+function pwaBannerInstall(){
+  if(_deferredPrompt){
+    _deferredPrompt.prompt()
+    _deferredPrompt.userChoice.then(r=>{
+      if(r.outcome==='accepted'){_deferredPrompt=null;pwaBannerFechar();toast('✅ App instalado!','ok')}
+    })
+  }else{pwaBannerFechar()}
+}
+
+// Android: captura evento nativo e mostra nosso banner após 2s
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault()
+  _deferredPrompt=e
+  setTimeout(pwaBannerMostrar,2000)
+})
+
+// iOS: sem beforeinstallprompt — mostra instruções manuais após 2s
+if(_isIOS&&!_isStandalone) setTimeout(pwaBannerMostrar,2000)
+
+window.addEventListener('appinstalled',()=>{
+  _deferredPrompt=null
+  $('pwa-banner').classList.remove('show')
+  toast('✅ App instalado!','ok')
+})
+
+// Feature 2: notificações push (só quando instalado/standalone)
+// ⚠️ NECESSÁRIO para envio real: gerar VAPID key no Firebase Console →
+//    Project Settings → Cloud Messaging → Web Push certificates
+//    e criar /firebase-messaging-sw.js no projeto
+const _VAPID_KEY=''  // cole aqui a chave do Firebase Console quando tiver
+const _notifBanner=$('notif-banner')
+
+function _notifDeveMostrar(){
+  if(!_isStandalone) return false                                 // só quando instalado
+  if(!('Notification' in window)) return false
+  if(Notification.permission==='granted'||Notification.permission==='denied') return false
+  if(sessionStorage.getItem('notif_fechado')) return false
+  return true
+}
+
+function fecharNotifBanner(){
+  _notifBanner.classList.remove('show')
+  sessionStorage.setItem('notif_fechado','1')
+}
+
+async function pedirNotificacao(){
+  fecharNotifBanner()
+  if(!('Notification' in window)) return
+  const perm=await Notification.requestPermission()
+  if(perm==='granted'){
+    toast('🔔 Notificações ativadas!','ok')
+    if(_VAPID_KEY&&G.user){
+      // Quando VAPID_KEY estiver configurada, obter token FCM e salvar no Firestore
+      try{
+        const messaging=firebase.messaging()
+        const token=await messaging.getToken({vapidKey:_VAPID_KEY})
+        if(token) await db.collection('shopvity_empresas').doc(G.user.uid).update({fcmToken:token,fcmAt:serverTS()})
+      }catch(_){}
+    }
+  }else if(perm==='denied'){toast('Permissão negada. Ative nas configurações do celular.','warn')}
+}
+
+// Reinscription silenciosa se já tem permissão e VAPID configurada
+async function _notifReinscricao(){
+  if(!_isStandalone||!_VAPID_KEY||!G.user||Notification.permission!=='granted') return
+  try{
+    const messaging=firebase.messaging()
+    const token=await messaging.getToken({vapidKey:_VAPID_KEY})
+    if(token) await db.collection('shopvity_empresas').doc(G.user.uid).update({fcmToken:token})
+  }catch(_){}
+}
+
+// Mostrar banner de notificação 2s após auth carregar (se standalone)
+if(_isStandalone) setTimeout(()=>{if(_notifDeveMostrar())_notifBanner.classList.add('show')},2000)
+
 if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{})
 </script>
 </body>
