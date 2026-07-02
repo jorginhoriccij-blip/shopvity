@@ -1090,7 +1090,7 @@ async function salvarProd(){
     // Recarregar vitrine
     const slug=G.empresa?.slug
     if(slug){const aSnap=await db.collection('shopvity_empresas').doc(G.user.uid).collection('anuncios').orderBy('criadoEm','desc').get();_vitProds=aSnap.docs.map(d=>({id:d.id,...d.data()}));renderVitrine(_vitProds,_vitCatAtiva)}
-  }catch(e){fecharLoader();toast('Erro: '+e.message,'err')}
+  }catch(e){fecharLoader();alert('Erro ao salvar: '+e.message)}
 }
 async function excluirProd(){
   const id=val('prod-id');if(!id) return
