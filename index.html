@@ -1000,7 +1000,10 @@ async function carregarVitrine(slug){
     else wb.style.display='none'
     let aSnap
     try{aSnap=await db.collection('shopvity_empresas').doc(eid).collection('anuncios').orderBy('criadoEm','desc').get()}
-    catch(_){aSnap=await db.collection('shopvity_empresas').doc(eid).collection('anuncios').get()}
+    catch(e1){
+      try{aSnap=await db.collection('shopvity_empresas').doc(eid).collection('anuncios').get()}
+      catch(e2){$('vit-grid').innerHTML=`<div class="vit-vazia"><p style="color:red">Erro: ${e2.message}</p></div>`;aSnap={docs:[]}}
+    }
     _vitProds=aSnap.docs.map(d=>({id:d.id,...d.data()}))
     renderVitrine(_vitProds,'Todos')
     // Verificar se é o dono logado
