@@ -998,7 +998,9 @@ async function carregarVitrine(slug){
     const wb=$('vit-wpp-btn')
     if(_vitWpp){wb.href=`https://wa.me/55${_vitWpp}?text=${encodeURIComponent('Olá! Vi sua vitrine '+emp.nomeEmpresa)}`;wb.style.display='flex'}
     else wb.style.display='none'
-    const aSnap=await db.collection('shopvity_empresas').doc(eid).collection('anuncios').orderBy('criadoEm','desc').get()
+    let aSnap
+    try{aSnap=await db.collection('shopvity_empresas').doc(eid).collection('anuncios').orderBy('criadoEm','desc').get()}
+    catch(_){aSnap=await db.collection('shopvity_empresas').doc(eid).collection('anuncios').get()}
     _vitProds=aSnap.docs.map(d=>({id:d.id,...d.data()}))
     renderVitrine(_vitProds,'Todos')
     // Verificar se é o dono logado
