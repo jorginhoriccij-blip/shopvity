@@ -1,4 +1,4 @@
-const CACHE = 'shopvity-v5'
+const CACHE = 'shopvity-v6'
 const STATIC = ['/manifest.json', '/icon-192.png', '/icon-512.png']
 
 self.addEventListener('install', e => {
