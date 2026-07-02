@@ -264,6 +264,10 @@ textarea.inp{resize:vertical;min-height:84px}
 #notif-banner.show{display:flex;transform:translateY(0)}
 
 /* CARRINHO */
+.cart-fab{position:fixed;top:14px;right:16px;z-index:700;background:#fff;border:none;border-radius:999px;width:44px;height:44px;display:none;align-items:center;justify-content:center;font-size:1.2rem;cursor:pointer;box-shadow:0 4px 18px rgba(0,0,0,.14);transition:.18s}
+.cart-fab:active{transform:scale(.92)}
+.cart-fab-badge{position:absolute;top:-4px;right:-4px;background:var(--err);color:#fff;border-radius:999px;min-width:18px;height:18px;font-size:.65rem;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid #fff}
+#t-vitrine:not(.owner-mode) .cart-fab{display:flex}
 .cart-float{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:500;background:#22c55e;color:#fff;border:none;border-radius:999px;padding:14px 28px;font-size:.9rem;font-weight:800;cursor:pointer;font-family:var(--f);box-shadow:0 6px 28px rgba(34,197,94,.45);white-space:nowrap;animation:slideUp .3s cubic-bezier(.34,1.56,.64,1)}
 @keyframes slideUp{from{transform:translateX(-50%) translateY(80px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
 .cart-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
@@ -417,6 +421,11 @@ textarea.inp{resize:vertical;min-height:84px}
      VITRINE (view única)
 ══════════════════════════════════════════════ -->
 <div class="tela" id="t-vitrine">
+
+  <!-- Botão carrinho (clientes) -->
+  <button class="cart-fab" id="cart-fab" onclick="abrirCarrinho()">
+    🛒<span class="cart-fab-badge" id="cart-fab-badge" style="display:none">0</span>
+  </button>
 
   <!-- Barra do dono (só aparece se for o dono logado) -->
   <div class="owner-bar" id="owner-bar" style="display:none">
@@ -902,12 +911,16 @@ function cartTotal(){return _cart.reduce((s,i)=>s+(Number(i.preco||0)*i.qty),0)}
 function cartQty(){return _cart.reduce((s,i)=>s+i.qty,0)}
 function atualizarCartFloat(){
   const qty=cartQty(),total=cartTotal()
-  const btn=$('cart-float')
+  const btn=$('cart-float'),badge=$('cart-fab-badge')
   if(qty>0&&!G.modoOwner){
     btn.style.display='block'
     $('cart-count').textContent=qty
     $('cart-total-float').textContent='R$ '+total.toLocaleString('pt-BR',{minimumFractionDigits:2})
-  }else{btn.style.display='none'}
+    badge.style.display='flex';badge.textContent=qty
+  }else{
+    btn.style.display='none'
+    badge.style.display='none'
+  }
 }
 function adicionarCarrinho(id){
   const p=_vitProds.find(x=>x.id===id);if(!p) return
