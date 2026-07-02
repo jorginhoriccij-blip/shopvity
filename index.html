@@ -829,7 +829,7 @@ async function carregarVitrine(slug){
   ir('vitrine')
   try{
     const snap=await db.collection('shopvity_empresas').where('slug','==',slug).limit(1).get()
-    if(snap.empty){localStorage.removeItem('shopvity_slug');if(G.user){ir('wizard');wizStep(1);return}$('vit-nome').textContent='Loja não encontrada';$('vit-grid').innerHTML=`<div class="vit-vazia"><div class="vit-vazia-ico">🔍</div><p>Esta loja não existe.</p></div>`;return}
+    if(snap.empty){localStorage.removeItem('shopvity_slug');window.location.href='/';return}
     const emp=snap.docs[0].data(),eid=snap.docs[0].id
     const n=NICHOS[emp.nicho]||NICHOS.servicos
     document.title=`${emp.nomeEmpresa} — ${APP.nome}`
